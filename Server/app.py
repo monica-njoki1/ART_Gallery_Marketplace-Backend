@@ -1,13 +1,16 @@
-from flask import Flask,request,make_response
-from models import db,Artist,Artwork
+# app.py
+from flask import Flask, request, jsonify, make_response
+from models import db, Artist, Artwork
 from flask_migrate import Migrate
+import os
 
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///art.db"
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///art.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-migrate = Migrate(app, db)
+# Initialize extensions
 db.init_app(app)
+migrate = Migrate(app, db)
 
 
 @app.route("/")
@@ -15,51 +18,137 @@ def home():
     return "Welcome to the Art Gallery Marketplace!"
 
 
-@app.route("/artists")
-def artists():
+### ARTISTS ROUTES ###
+@app.route("/artists", methods=["GET"])
+def get_artists():
     artists = Artist.query.all()
-    artist_list = [artist.to_dict for artist in artists]
-    resp = make_response(artist_list, 200)
-    return resp
+    artist_list = [artist.to_dict(rules=("-artworks.artist",)) for artist in artists]
+    return make_response(jsonify(artist_list), 200)
 
 
-@app.route("/artists/<int:id>", methods=["GET","DELETE"])
-def artists_by_id(id):
-    artist = Artist.query.filter_by(id ==id).first()
+@app.route("/artists/<int:artist_id>", methods=["GET"])
+def get_artist(artist_id):
+    artist = Artist.query.get(artist_id)
     if not artist:
-        return {"error":"Artist not found"}
-    if request.method == "GET":
-        return make_response(
-            artist.to_dict(
-                only=("id","name","bio")
-            ),
-            200
-        )
-    if request.method == "DELETE":
-        db.session.delete(artist)
-        db.session.commit()
-        resp = make_response(
-            {"message":"Artist successfully deleted"}
+        return make_response(jsonify({"error": "Artist not found"}), 404)
 
-        )
-        return resp
+    # include artworks but prevent recursion back to artist
+    return make_response(jsonify(artist.to_dict(rules=("-artworks.artist",))), 200)
 
-@app.route("/artworks")
-def artworks():
-    artwork = Artwork.query.all()
-    artwork_list = [art.to_dict() for art in artwork]
-    resp = make_response(
-        artwork_list,
-        200
-    )
-    return resp
-# The route below will show the artwork details
-@app.route("/artworks/")
-def art_work_details():
-    pass
 
-# @app.route("")
+@app.route("/artists", methods=["POST"])
+def create_artist():
+    data = request.get_json() or {}
+    name = data.get("name")
+    bio = data.get("bio", "")
+
+    if not name:
+        return make_response(jsonify({"error": "Missing 'name' field"}), 400)
+
+    artist = Artist(name=name, bio=bio)
+    db.session.add(artist)
+    db.session.commit()
+    return make_response(jsonify(artist.to_dict(rules=("-artworks",))), 201)
+
+
+@app.route("/artists/<int:artist_id>", methods=["PATCH"])
+def update_artist(artist_id):
+    artist = Artist.query.get(artist_id)
+    if not artist:
+        return make_response(jsonify({"error": "Artist not found"}), 404)
+
+    data = request.get_json() or {}
+    if "name" in data:
+        artist.name = data["name"]
+    if "bio" in data:
+        artist.bio = data["bio"]
+
+    db.session.commit()
+    return make_response(jsonify(artist.to_dict(rules=("-artworks",))), 200)
+
+
+@app.route("/artists/<int:artist_id>", methods=["DELETE"])
+def delete_artist(artist_id):
+    artist = Artist.query.get(artist_id)
+    if not artist:
+        return make_response(jsonify({"error": "Artist not found"}), 404)
+
+    db.session.delete(artist)
+    db.session.commit()
+    return make_response(jsonify({"message": "Artist successfully deleted"}), 200)
+
+
+### ARTWORKS ROUTES ###
+@app.route("/artworks", methods=["GET"])
+def get_artworks():
+    artworks = Artwork.query.all()
+    artwork_list = [art.to_dict(rules=("-artist.artworks",)) for art in artworks]
+    return make_response(jsonify(artwork_list), 200)
+
+
+@app.route("/artworks/<int:artwork_id>", methods=["GET"])
+def get_artwork(artwork_id):
+    art = Artwork.query.get(artwork_id)
+    if not art:
+        return make_response(jsonify({"error": "Artwork not found"}), 404)
+
+    # include artist but not their artworks
+    return make_response(jsonify(art.to_dict(rules=("-artist.artworks",))), 200)
+
+
+@app.route("/artworks", methods=["POST"])
+def create_artwork():
+    data = request.get_json() or {}
+    title = data.get("title")
+    price = data.get("price")
+    artist_id = data.get("artist_id")
+
+    if not title or price is None or artist_id is None:
+        return make_response(jsonify({"error": "Missing required fields: title, price, artist_id"}), 400)
+
+    artist = Artist.query.get(artist_id)
+    if not artist:
+        return make_response(jsonify({"error": "Artist (artist_id) not found"}), 404)
+
+    art = Artwork(title=title, price=price, artist_id=artist_id)
+    db.session.add(art)
+    db.session.commit()
+    return make_response(jsonify(art.to_dict(rules=("-artist.artworks",))), 201)
+
+
+@app.route("/artworks/<int:artwork_id>", methods=["PATCH"])
+def update_artwork(artwork_id):
+    art = Artwork.query.get(artwork_id)
+    if not art:
+        return make_response(jsonify({"error": "Artwork not found"}), 404)
+
+    data = request.get_json() or {}
+    if "title" in data:
+        art.title = data["title"]
+    if "price" in data:
+        art.price = data["price"]
+    if "artist_id" in data:
+        new_artist = Artist.query.get(data["artist_id"])
+        if not new_artist:
+            return make_response(jsonify({"error": "New artist_id not found"}), 404)
+        art.artist_id = data["artist_id"]
+
+    db.session.commit()
+    return make_response(jsonify(art.to_dict(rules=("-artist.artworks",))), 200)
+
+
+@app.route("/artworks/<int:artwork_id>", methods=["DELETE"])
+def delete_artwork(artwork_id):
+    art = Artwork.query.get(artwork_id)
+    if not art:
+        return make_response(jsonify({"error": "Artwork not found"}), 404)
+
+    db.session.delete(art)
+    db.session.commit()
+    return make_response(jsonify({"message": "Artwork successfully deleted"}), 200)
 
 
 if __name__ == "__main__":
+    with app.app_context():
+        db.create_all()
     app.run(debug=True, port=5555)
