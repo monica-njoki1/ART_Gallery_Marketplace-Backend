@@ -5,6 +5,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from flask_migrate import Migrate
 import os
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///art.db")
@@ -14,6 +15,8 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
 migrate = Migrate(app, db)
 
+UPLOAD_FOLDER = "static/uploads"
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 @app.route("/")
 def home():
@@ -104,6 +107,7 @@ def create_artwork():
     title = data.get("title")
     price = data.get("price")
     artist_id = data.get("artist_id")
+    image_url = data.get("image_url")
 
     if not title or price is None or artist_id is None:
         return make_response(jsonify({"error": "Missing required fields: title, price, artist_id"}), 400)
@@ -112,7 +116,7 @@ def create_artwork():
     if not artist:
         return make_response(jsonify({"error": "Artist (artist_id) not found"}), 404)
 
-    art = Artwork(title=title, price=price, artist_id=artist_id)
+    art = Artwork(title=title, price=price, artist_id=artist_id, image_url=image_url)
     db.session.add(art)
     db.session.commit()
     return make_response(jsonify(art.to_dict(rules=("-artist.artworks",))), 201)
@@ -129,6 +133,8 @@ def update_artwork(artwork_id):
         art.title = data["title"]
     if "price" in data:
         art.price = data["price"]
+    if "image_url" in data:
+        art.image_url = data["image_url"]
     if "artist_id" in data:
         new_artist = Artist.query.get(data["artist_id"])
         if not new_artist:
@@ -255,6 +261,22 @@ def get_purchase(purchase_id):
 
     return make_response(jsonify(purchase.to_dict(rules=("-user.purchases", "-artwork.purchases"))), 200)
 
+@app.route("/upload", methods=["POST"])
+def upload_file():
+    if "file" not in request.files:
+        return {"error": "No file part"}, 400
+    
+    file = request.files["file"]
+    if file.filename == "":
+        return {"error": "No selected file"}, 400
+    
+    filename = secure_filename(file.filename)
+    filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+    file.save(filepath)
+    
+    # store just the relative path in DB
+    file_url = f"/static/uploads/{filename}"
+    return {"image_url": file_url}
 
 if __name__ == "__main__":
     with app.app_context():
