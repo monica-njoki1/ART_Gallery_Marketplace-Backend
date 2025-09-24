@@ -191,6 +191,11 @@ def logout_user():
     session.pop('user_id', None)
     return make_response(jsonify({"message": "User logged out successfully"}), 200)
 
+@app.route("/users", methods=["GET"])
+def get_users():
+    users = User.query.all()
+    user_list = [user.to_dict(rules=("-purchases", "-password")) for user in users]
+    return make_response(jsonify(user_list), 200)
 
 @app.route("/users/<int:user_id>", methods=["GET"])
 def get_user(user_id):
