@@ -1,6 +1,6 @@
-# models.py
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy_serializer import SerializerMixin  # using the installed library
+from sqlalchemy_serializer import SerializerMixin
+from datetime import datetime
 
 db = SQLAlchemy()
 
@@ -12,7 +12,6 @@ class Artist(db.Model, SerializerMixin):
     name = db.Column(db.String, nullable=False)
     bio = db.Column(db.String)
 
-    # One-to-many: an artist has many artworks
     artworks = db.relationship(
         "Artwork",
         back_populates="artist",
@@ -34,10 +33,8 @@ class Artwork(db.Model, SerializerMixin):
     price = db.Column(db.Integer, nullable=False)
     artist_id = db.Column(db.Integer, db.ForeignKey("artists.id"), nullable=False)
 
-    # Many-to-one: an artwork belongs to one artist
     artist = db.relationship("Artist", back_populates="artworks", lazy="joined")
 
-    # One-to-many: an artwork has many purchases
     purchases = db.relationship(
         "Purchase",
         back_populates="artwork",
@@ -45,7 +42,15 @@ class Artwork(db.Model, SerializerMixin):
         lazy="select"
     )
 
-    serialize_rules = ("-artist.artworks", "-purchases.artwork")
+    # New: one artwork can have multiple sell listings
+    sells = db.relationship(
+        "Sell",
+        back_populates="artwork",
+        cascade="all, delete-orphan",
+        lazy="select"
+    )
+
+    serialize_rules = ("-artist.artworks", "-purchases.artwork", "-sells.artwork")
 
     def __repr__(self):
         return f"<Artwork {self.id} {self.title} ${self.price}>"
@@ -59,16 +64,22 @@ class User(db.Model, SerializerMixin):
     email = db.Column(db.String, nullable=False)
     password = db.Column(db.String, nullable=False)
 
-    # One-to-many: a user has many purchases
     purchases = db.relationship(
         "Purchase",
         back_populates="user",
         cascade="all, delete-orphan",
         lazy="select"
     )
-    
 
-    serialize_rules = ("-purchases.user",)
+    # New: user can sell artworks
+    sells = db.relationship(
+        "Sell",
+        back_populates="seller",
+        cascade="all, delete-orphan",
+        lazy="select"
+    )
+
+    serialize_rules = ("-purchases.user", "-sells.seller")
 
     def __repr__(self):
         return f"<User {self.id} {self.userName}>"
@@ -76,21 +87,37 @@ class User(db.Model, SerializerMixin):
 
 class Purchase(db.Model, SerializerMixin):
     __tablename__ = "purchases"
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     artwork_id = db.Column(db.Integer, db.ForeignKey("artworks.id"), nullable=False)
     price_paid = db.Column(db.Integer, nullable=False)
-    date = db.Column(db.DateTime, nullable=False)
+    date = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Many-to-one: a purchase belongs to one user
     user = db.relationship("User", back_populates="purchases", lazy="joined")
-    # Many-to-one: a purchase belongs to one artwork
     artwork = db.relationship("Artwork", back_populates="purchases", lazy="joined")
 
     serialize_rules = ("-user.purchases", "-artwork.purchases")
-
 
     def __repr__(self):
         return f"<Purchase {self.id} User:{self.user_id} Artwork:{self.artwork_id} ${self.price_paid}>"
 
 
+class Sell(db.Model, SerializerMixin):
+    __tablename__ = "sells"
+
+    id = db.Column(db.Integer, primary_key=True)
+    price = db.Column(db.Integer, nullable=False)
+    status = db.Column(db.String, default="listed")  # listed, sold, canceled
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    seller_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    artwork_id = db.Column(db.Integer, db.ForeignKey("artworks.id"), nullable=False)
+
+    seller = db.relationship("User", back_populates="sells", lazy="joined")
+    artwork = db.relationship("Artwork", back_populates="sells", lazy="joined")
+
+    serialize_rules = ("-seller.sells", "-artwork.sells")
+
+    def __repr__(self):
+        return f"<Sell {self.id} Artwork:{self.artwork_id} by User:{self.seller_id} ${self.price} {self.status}>"
