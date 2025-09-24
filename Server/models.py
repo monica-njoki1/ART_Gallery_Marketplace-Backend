@@ -33,16 +33,16 @@ class Artwork(db.Model, SerializerMixin):
     price = db.Column(db.Integer, nullable=False)
     artist_id = db.Column(db.Integer, db.ForeignKey("artists.id"), nullable=False)
 
-    artist = db.relationship("Artist", back_populates="artworks", lazy="joined")
+    image_url = db.Column(db.String, nullable=True)
 
+    # Relationships
+    artist = db.relationship("Artist", back_populates="artworks", lazy="joined")
     purchases = db.relationship(
         "Purchase",
         back_populates="artwork",
         cascade="all, delete-orphan",
         lazy="select"
     )
-
-    # New: one artwork can have multiple sell listings
     sells = db.relationship(
         "Sell",
         back_populates="artwork",
@@ -70,8 +70,6 @@ class User(db.Model, SerializerMixin):
         cascade="all, delete-orphan",
         lazy="select"
     )
-
-    # New: user can sell artworks
     sells = db.relationship(
         "Sell",
         back_populates="seller",
