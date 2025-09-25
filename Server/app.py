@@ -1,6 +1,6 @@
 # app.py
 from flask import Flask, request, jsonify, make_response, session
-from models import db, Artist, Artwork, User, Purchase
+from models import db, Artist, Artwork, User, Purchase, Sell, Cart
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from flask_migrate import Migrate
@@ -47,6 +47,7 @@ def get_artist(artist_id):
 @app.route("/artists", methods=["POST"])
 def create_artist():
     data = request.get_json() or {}
+    profile_pic = data.get("profile_pic", "")
     name = data.get("name")
     bio = data.get("bio", "")
 
@@ -66,6 +67,8 @@ def update_artist(artist_id):
         return make_response(jsonify({"error": "Artist not found"}), 404)
 
     data = request.get_json() or {}
+    if "profile_pic" in data:
+        artist.profile_pic = data["profile_pic"]
     if "name" in data:
         artist.name = data["name"]
     if "bio" in data:
@@ -285,6 +288,80 @@ def upload_file():
     # store just the relative path in DB
     file_url = f"/static/uploads/{filename}"
     return {"image_url": file_url}
+
+
+#### CART ROUTES ###
+@app.route("/cart", methods=["POST"])
+def add_to_cart():
+    data = request.get_json() or {}
+    user_id = data.get("user_id")
+    artwork_id = data.get("artwork_id")
+
+    if not user_id or not artwork_id:
+        return jsonify({"error": "Missing user_id or artwork_id"}), 400
+
+    user = User.query.get(user_id)
+    art = Artwork.query.get(artwork_id)
+    if not user or not art:
+        return jsonify({"error": "User or Artwork not found"}), 404
+    # Prevent duplicates
+    existing = Cart.query.filter_by(user_id=user_id, artwork_id=artwork_id).first()
+    if existing:
+        return jsonify({"message": "Item already in cart", "cart_item": existing.serialize()}), 200
+
+    item = Cart(user_id=user_id, artwork_id=artwork_id)
+    db.session.add(item)
+    db.session.commit()
+    return jsonify(item.serialize()), 201
+
+@app.route("/cart/<int:user_id>", methods=["GET"])
+def view_cart(user_id):
+    user = User.query.get_or_404(user_id)
+    items = Cart.query.filter_by(user_id=user.id).all()
+    return jsonify([it.serialize() for it in items]), 200
+
+@app.route("/cart/<int:cart_id>", methods=["DELETE"])
+def remove_cart_item(cart_id):
+    item = Cart.query.get_or_404(cart_id)
+    db.session.delete(item)
+    db.session.commit()
+    return jsonify({"message": "Cart item removed"}), 200
+
+@app.route("/cart/checkout/<int:user_id>", methods=["POST"])
+def checkout_cart(user_id):
+    user = User.query.get_or_404(user_id)
+    items = Cart.query.filter_by(user_id=user.id).all()
+    if not items:
+        return jsonify({"error": "Cart is empty"}), 400
+
+    purchases = []
+    for it in items:
+        art = it.artwork
+        purchase = Purchase(
+            user_id=user.id,
+            artwork_id=art.id,
+            price_paid=art.price,
+            date=datetime.utcnow()
+        )
+        db.session.add(purchase)
+        purchases.append(purchase)
+        db.session.delete(it)  # clear cart
+
+    db.session.commit()
+    return jsonify({"message": "Checkout complete", "purchases": [p.serialize() for p in purchases]}), 201
+
+
+@app.route("/seed-check", methods=["GET"])
+def seed_check():
+    counts = {
+        "artists": Artist.query.count(),
+        "artworks": Artwork.query.count(),
+        "users": User.query.count(),
+        "purchases": Purchase.query.count(),
+        "cart": Cart.query.count()
+    }
+    return jsonify(counts), 200
+
 
 if __name__ == "__main__":
     with app.app_context():

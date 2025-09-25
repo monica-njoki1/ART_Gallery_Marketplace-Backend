@@ -9,16 +9,16 @@ with app.app_context():
 
     
     artists = [
-        Artist(name="Leonardo da Vinci", bio="Renaissance polymath, painter of the Mona Lisa."),
-        Artist(name="Vincent van Gogh", bio="Post-Impressionist painter famous for Starry Night."),
-        Artist(name="Frida Kahlo", bio="Mexican painter known for her self-portraits."),
-        Artist(name="Claude Monet", bio="Founder of French Impressionism."),
-        Artist(name="Pablo Picasso", bio="Spanish painter and sculptor, co-founder of Cubism."),
-        Artist(name="Salvador Dalí", bio="Spanish surrealist painter."),
-        Artist(name="Georgia O’Keeffe", bio="American modernist painter."),
-        Artist(name="Rembrandt van Rijn", bio="Dutch Golden Age painter."),
-        Artist(name="Edvard Munch", bio="Norwegian painter, created The Scream."),
-        Artist(name="Johannes Vermeer", bio="Dutch Baroque painter, Girl with a Pearl Earring."),
+        Artist(profile_pic="https://cdn.pixabay.com/photo/2017/06/10/16/33/double-exposure-2390185_1280.jpg", name="Leonardo da Vinci", bio="Renaissance polymath, painter of the Mona Lisa."),
+        Artist(profile_pic="https://cdn.pixabay.com/photo/2017/04/29/18/22/skateboard-2271295_640.jpg", name="Vincent van Gogh", bio="Post-Impressionist painter famous for Starry Night."),
+        Artist(profile_pic="https://cdn.pixabay.com/photo/2017/11/29/09/15/paint-2985569_640.jpg", name="Frida Kahlo", bio="Mexican painter known for her self-portraits."),
+        Artist(profile_pic="https://cdn.pixabay.com/photo/2024/04/12/15/46/beautiful-8692180_640.png", name="Claude Monet", bio="Founder of French Impressionism."),
+        Artist(profile_pic="https://cdn.pixabay.com/photo/2023/06/16/15/10/man-8068201_640.jpg", name="Pablo Picasso", bio="Spanish painter and sculptor, co-founder of Cubism."),
+        Artist(profile_pic="https://cdn.pixabay.com/photo/2019/12/17/17/44/eye-4702141_640.jpg", name="Salvador Dalí", bio="Spanish surrealist painter."),
+        Artist(profile_pic="https://cdn.pixabay.com/photo/2019/11/03/20/11/portrait-4599553_640.jpg", name="Georgia O’Keeffe", bio="American modernist painter."),
+        Artist(profile_pic="https://cdn.pixabay.com/photo/2024/05/05/18/21/who-was-created-8741715_640.png", name="Rembrandt van Rijn", bio="Dutch Golden Age painter."),
+        Artist(profile_pic="https://cdn.pixabay.com/photo/2019/11/05/16/03/man-4603859_640.jpg", name="Edvard Munch", bio="Norwegian painter, created The Scream."),
+        Artist(profile_pic="https://cdn.pixabay.com/photo/2023/06/16/15/10/man-8068201_640.jpg", name="Johannes Vermeer", bio="Dutch Baroque painter, Girl with a Pearl Earring."),
     ]
     db.session.add_all(artists)
     db.session.commit()
