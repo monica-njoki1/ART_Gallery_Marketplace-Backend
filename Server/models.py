@@ -50,8 +50,19 @@ class Artwork(db.Model, SerializerMixin):
         cascade="all, delete-orphan",
         lazy="select"
     )
+    cart = db.relationship(   
+        "Cart",
+        back_populates="artwork",
+        cascade="all, delete-orphan",
+        lazy="select"
+    )
 
-    serialize_rules = ("-artist.artworks", "-purchases.artwork", "-sells.artwork")
+    serialize_rules = (
+        "-artist.artworks",
+        "-purchases.artwork",
+        "-sells.artwork",
+        "-cart.artwork",
+    )
 
     def __repr__(self):
         return f"<Artwork {self.id} {self.title} ${self.price}>"
@@ -77,8 +88,12 @@ class User(db.Model, SerializerMixin):
         cascade="all, delete-orphan",
         lazy="select"
     )
-    cart_items = db.relationship("Cart", back_populates="user", cascade="all, delete-orphan", lazy="select")
-
+    cart_items = db.relationship(
+        "Cart",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="select"
+    )
 
     serialize_rules = ("-purchases.user", "-sells.seller", "-cart_items.user")
 
@@ -135,7 +150,7 @@ class Cart(db.Model, SerializerMixin):
     user = db.relationship("User", back_populates="cart_items", lazy="joined")
     artwork = db.relationship("Artwork", back_populates="cart", lazy="joined")
 
-    serialize_rules = ("-user.purchases", "-artwork.purchases")
+    serialize_rules = ("-user.cart_items", "-artwork.cart")
 
     def __repr__(self):
         return f"<Cart {self.id} User:{self.user_id} Artwork:{self.artwork_id}>"
