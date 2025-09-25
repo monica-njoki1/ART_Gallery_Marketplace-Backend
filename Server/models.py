@@ -132,8 +132,8 @@ class Cart(db.Model, SerializerMixin):
     artwork_id = db.Column(db.Integer, db.ForeignKey("artworks.id"), nullable=False)
     added_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    user = db.relationship("User", back_populates="cart_items" lazy="joined")
-    artwork = db.relationship("Artwork", back_populates="cart" lazy="joined")
+    user = db.relationship("User", back_populates="cart_items", lazy="joined")
+    artwork = db.relationship("Artwork", back_populates="cart", lazy="joined")
 
     serialize_rules = ("-user.purchases", "-artwork.purchases")
 
