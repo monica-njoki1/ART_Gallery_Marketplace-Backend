@@ -12,6 +12,11 @@ class Artist(db.Model, SerializerMixin):
     profile_pic = db.Column(db.String, nullable=True)
     name = db.Column(db.String, nullable=False)
     bio = db.Column(db.String)
+    email = db.Column(db.String, nullable=True, unique=True, index=True)  
+
+    __table_args__ = (
+        db.UniqueConstraint("email", name="uq_artists_email"),  
+    )
 
     artworks = db.relationship(
         "Artwork",
@@ -32,6 +37,7 @@ class Artwork(db.Model, SerializerMixin):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String, nullable=False)
     price = db.Column(db.Integer, nullable=False)
+    description = db.Column(db.Text, nullable=True)  
     artist_id = db.Column(db.Integer, db.ForeignKey("artists.id"), nullable=False)
 
     image_url = db.Column(db.String, nullable=True)
@@ -50,7 +56,7 @@ class Artwork(db.Model, SerializerMixin):
         cascade="all, delete-orphan",
         lazy="select"
     )
-    cart = db.relationship(   
+    cart = db.relationship(
         "Cart",
         back_populates="artwork",
         cascade="all, delete-orphan",
@@ -75,7 +81,7 @@ class User(db.Model, SerializerMixin):
     userName = db.Column(db.String, nullable=False)
     email = db.Column(db.String, nullable=False)
     password = db.Column(db.String, nullable=False)
-    
+
     purchases = db.relationship(
         "Purchase",
         back_populates="user",
