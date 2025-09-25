@@ -1,6 +1,6 @@
 # app.py
 from flask import Flask, request, jsonify, make_response, session
-from models import db, Artist, Artwork, User, Purchase
+from models import db, Artist, Artwork, User, Purchase, Sell, Cart
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from flask_migrate import Migrate
