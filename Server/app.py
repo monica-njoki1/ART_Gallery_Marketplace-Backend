@@ -6,8 +6,10 @@ from datetime import datetime
 from flask_migrate import Migrate
 import os
 from werkzeug.utils import secure_filename
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///art.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
@@ -231,7 +233,7 @@ def delete_user(user_id):
     db.session.commit()
     return make_response(jsonify({"message": "User successfully deleted"}), 200)
 
-### PURCHASES ROUTES ###
+## PURCHASES ROUTES ###
 @app.route("/purchases", methods=["POST"])
 def create_purchase():
     if not session.get('user_id'):
