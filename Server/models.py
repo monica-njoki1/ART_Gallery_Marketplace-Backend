@@ -9,6 +9,7 @@ class Artist(db.Model, SerializerMixin):
     __tablename__ = "artists"
 
     id = db.Column(db.Integer, primary_key=True)
+    profile_pic = db.Column(db.String, nullable=True)
     name = db.Column(db.String, nullable=False)
     bio = db.Column(db.String)
 
@@ -63,7 +64,7 @@ class User(db.Model, SerializerMixin):
     userName = db.Column(db.String, nullable=False)
     email = db.Column(db.String, nullable=False)
     password = db.Column(db.String, nullable=False)
-
+    
     purchases = db.relationship(
         "Purchase",
         back_populates="user",
@@ -76,8 +77,10 @@ class User(db.Model, SerializerMixin):
         cascade="all, delete-orphan",
         lazy="select"
     )
+    cart_items = db.relationship("Cart", back_populates="user", cascade="all, delete-orphan", lazy="select")
 
-    serialize_rules = ("-purchases.user", "-sells.seller")
+
+    serialize_rules = ("-purchases.user", "-sells.seller", "-cart_items.user")
 
     def __repr__(self):
         return f"<User {self.id} {self.userName}>"
@@ -119,3 +122,20 @@ class Sell(db.Model, SerializerMixin):
 
     def __repr__(self):
         return f"<Sell {self.id} Artwork:{self.artwork_id} by User:{self.seller_id} ${self.price} {self.status}>"
+
+
+class Cart(db.Model, SerializerMixin):
+    __tablename__ = "carts"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    artwork_id = db.Column(db.Integer, db.ForeignKey("artworks.id"), nullable=False)
+    added_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship("User", back_populates="cart_items" lazy="joined")
+    artwork = db.relationship("Artwork", back_populates="cart" lazy="joined")
+
+    serialize_rules = ("-user.purchases", "-artwork.purchases")
+
+    def __repr__(self):
+        return f"<Cart {self.id} User:{self.user_id} Artwork:{self.artwork_id}>"
