@@ -4,6 +4,7 @@ from datetime import datetime
 
 db = SQLAlchemy()
 
+
 class Artist(db.Model, SerializerMixin):
     __tablename__ = "artists"
 
@@ -43,9 +44,8 @@ class Artwork(db.Model, SerializerMixin):
     price = db.Column(db.Integer, nullable=False)
     description = db.Column(db.Text, nullable=True)
     artist_id = db.Column(db.Integer, db.ForeignKey("artists.id"), nullable=False)
-
     image_url = db.Column(db.String, nullable=True)
-    
+
     artist = db.relationship("Artist", back_populates="artworks", lazy="joined")
     purchases = db.relationship(
         "Purchase",
@@ -79,13 +79,15 @@ class Artwork(db.Model, SerializerMixin):
     def __repr__(self):
         return f"<Artwork {self.id} {self.title} ${self.price}>"
 
+
 class User(db.Model, SerializerMixin):
     __tablename__ = "users"
 
     id = db.Column(db.Integer, primary_key=True)
     userName = db.Column(db.String, nullable=False)
-    email = db.Column(db.String, nullable=False)
+    email = db.Column(db.String, nullable=False, unique=True, index=True)
     password = db.Column(db.String, nullable=False)
+    role = db.Column(db.String, nullable=True, default="user")
 
     purchases = db.relationship(
         "Purchase",
@@ -111,10 +113,12 @@ class User(db.Model, SerializerMixin):
         "-sells.seller",
         "-cart_items.user",
         "-cart_items.artwork",
+        "-password",
     )
 
     def __repr__(self):
-        return f"<User {self.id} {self.userName}>"
+        return f"<User {self.id} {self.userName} ({self.role})>"
+
 
 class Purchase(db.Model, SerializerMixin):
     __tablename__ = "purchases"
@@ -141,6 +145,7 @@ class Purchase(db.Model, SerializerMixin):
     def __repr__(self):
         return f"<Purchase {self.id} User:{self.user_id} Artwork:{self.artwork_id} ${self.price_paid}>"
 
+
 class Sell(db.Model, SerializerMixin):
     __tablename__ = "sells"
 
@@ -166,6 +171,7 @@ class Sell(db.Model, SerializerMixin):
 
     def __repr__(self):
         return f"<Sell {self.id} Artwork:{self.artwork_id} by User:{self.seller_id} ${self.price} {self.status}>"
+
 
 class Cart(db.Model, SerializerMixin):
     __tablename__ = "carts"

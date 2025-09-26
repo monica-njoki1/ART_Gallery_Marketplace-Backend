@@ -8,7 +8,7 @@ from werkzeug.utils import secure_filename
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)
+CORS(app,supports_credentials=True)
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///art.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.secret_key = os.environ.get("SECRET_KEY", "supersecretkey")
@@ -84,7 +84,7 @@ def create_artwork():
         price=data["price"],
         artist_id=data["artist_id"],
         image_url=data.get("image_url"),
-        description=data.get("description")  # Added description
+        description=data.get("description")
     )
     db.session.add(art)
     db.session.commit()
@@ -97,7 +97,7 @@ def update_artwork(artwork_id):
     if "title" in data: art.title = data["title"]
     if "price" in data: art.price = data["price"]
     if "image_url" in data: art.image_url = data["image_url"]
-    if "description" in data: art.description = data["description"]  # Added description
+    if "description" in data: art.description = data["description"]
     if "artist_id" in data:
         new_artist = Artist.query.get(data["artist_id"])
         if not new_artist: return jsonify({"error": "Artist not found"}), 404
@@ -113,16 +113,27 @@ def delete_artwork(artwork_id):
     return jsonify({"message": "Artwork deleted"}), 200
 
 # --- USERS ---
+# --- USERS ---
 @app.route("/signup", methods=["POST"])
 def signup_user():
     data = request.get_json() or {}
     if not data.get("userName") or not data.get("email") or not data.get("password"):
         return jsonify({"error": "Missing fields"}), 400
+
+    if User.query.filter_by(email=data["email"]).first():
+        return jsonify({"error": "Email already registered"}), 400
+
     hashed_password = generate_password_hash(data["password"])
-    user = User(userName=data["userName"], email=data["email"], password=hashed_password)
+    user = User(
+        userName=data["userName"],
+        email=data["email"],
+        password=hashed_password,
+        role=data.get("role", "user")  # NEW
+    )
     db.session.add(user)
     db.session.commit()
-    return jsonify(user.to_dict(rules=("-purchases", "-password"))), 201
+    return jsonify(user.to_dict(rules=("-purchases", "-sells", "-cart_items", "-password"))), 201
+
 
 @app.route("/login", methods=["POST"])
 def login_user():
@@ -130,11 +141,13 @@ def login_user():
     user = User.query.filter_by(email=data.get("email")).first()
     if not user or not check_password_hash(user.password, data.get("password", "")):
         return jsonify({"error": "Invalid credentials"}), 401
+
     session['user_id'] = user.id
     return jsonify({
         "message": f"Welcome back, {user.userName}!",
         "user": user.to_dict(rules=("-purchases", "-sells", "-cart_items", "-password"))
     })
+
 
 @app.route("/logout", methods=["POST"])
 def logout_user():
@@ -192,6 +205,34 @@ def create_purchase():
 def get_purchase(purchase_id):
     purchase = Purchase.query.get_or_404(purchase_id)
     return jsonify(purchase.to_dict(rules=("-user.purchases", "-artwork.purchases")))
+
+@app.route("/purchases/user/<int:user_id>", methods=["GET"])
+def get_user_purchases(user_id):
+    """Get all purchases for a given user"""
+    purchases = Purchase.query.filter_by(user_id=user_id).all()
+    return jsonify([
+        p.to_dict(rules=("-user.purchases", "-artwork.purchases"))
+        for p in purchases
+    ]), 200
+
+@app.route("/purchases/<int:purchase_id>", methods=["DELETE"])
+def sell_artwork(purchase_id):
+    """
+    Simulate selling artwork:
+    - Delete purchase record
+    - Add entry into Sell table
+    """
+    purchase = Purchase.query.get_or_404(purchase_id)
+    sell = Sell(
+        price=purchase.price_paid,
+        seller_id=purchase.user_id,
+        artwork_id=purchase.artwork_id,
+        status="listed"
+    )
+    db.session.add(sell)
+    db.session.delete(purchase)
+    db.session.commit()
+    return jsonify({"message": "Artwork listed for sale", "sell": sell.to_dict()}), 200
 
 # --- UPLOAD ---
 @app.route("/upload", methods=["POST"])
