@@ -4,7 +4,6 @@ from datetime import datetime
 
 db = SQLAlchemy()
 
-
 class Artist(db.Model, SerializerMixin):
     __tablename__ = "artists"
 
@@ -12,10 +11,10 @@ class Artist(db.Model, SerializerMixin):
     profile_pic = db.Column(db.String, nullable=True)
     name = db.Column(db.String, nullable=False)
     bio = db.Column(db.String)
-    email = db.Column(db.String, nullable=True, unique=True, index=True)  
+    email = db.Column(db.String, nullable=True, unique=True, index=True)
 
     __table_args__ = (
-        db.UniqueConstraint("email", name="uq_artists_email"),  
+        db.UniqueConstraint("email", name="uq_artists_email"),
     )
 
     artworks = db.relationship(
@@ -25,7 +24,12 @@ class Artist(db.Model, SerializerMixin):
         lazy="select"
     )
 
-    serialize_rules = ("-artworks.artist",)
+    serialize_rules = (
+        "-artworks.artist",
+        "-artworks.cart",
+        "-artworks.purchases",
+        "-artworks.sells",
+    )
 
     def __repr__(self):
         return f"<Artist {self.id} {self.name}>"
@@ -37,12 +41,11 @@ class Artwork(db.Model, SerializerMixin):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String, nullable=False)
     price = db.Column(db.Integer, nullable=False)
-    description = db.Column(db.Text, nullable=True)  
+    description = db.Column(db.Text, nullable=True)
     artist_id = db.Column(db.Integer, db.ForeignKey("artists.id"), nullable=False)
 
     image_url = db.Column(db.String, nullable=True)
-
-    # Relationships
+    
     artist = db.relationship("Artist", back_populates="artworks", lazy="joined")
     purchases = db.relationship(
         "Purchase",
@@ -65,14 +68,16 @@ class Artwork(db.Model, SerializerMixin):
 
     serialize_rules = (
         "-artist.artworks",
-        "-purchases.artwork",
-        "-sells.artwork",
         "-cart.artwork",
+        "-cart.user",
+        "-purchases.artwork",
+        "-purchases.user",
+        "-sells.artwork",
+        "-sells.seller",
     )
 
     def __repr__(self):
         return f"<Artwork {self.id} {self.title} ${self.price}>"
-
 
 class User(db.Model, SerializerMixin):
     __tablename__ = "users"
@@ -101,11 +106,15 @@ class User(db.Model, SerializerMixin):
         lazy="select"
     )
 
-    serialize_rules = ("-purchases.user", "-sells.seller", "-cart_items.user")
+    serialize_rules = (
+        "-purchases.user",
+        "-sells.seller",
+        "-cart_items.user",
+        "-cart_items.artwork",
+    )
 
     def __repr__(self):
         return f"<User {self.id} {self.userName}>"
-
 
 class Purchase(db.Model, SerializerMixin):
     __tablename__ = "purchases"
@@ -119,31 +128,44 @@ class Purchase(db.Model, SerializerMixin):
     user = db.relationship("User", back_populates="purchases", lazy="joined")
     artwork = db.relationship("Artwork", back_populates="purchases", lazy="joined")
 
-    serialize_rules = ("-user.purchases", "-artwork.purchases")
+    serialize_rules = (
+        "-user.purchases",
+        "-user.cart_items",
+        "-user.sells",
+        "-artwork.purchases",
+        "-artwork.cart",
+        "-artwork.sells",
+        "-artwork.artist.artworks",
+    )
 
     def __repr__(self):
         return f"<Purchase {self.id} User:{self.user_id} Artwork:{self.artwork_id} ${self.price_paid}>"
-
 
 class Sell(db.Model, SerializerMixin):
     __tablename__ = "sells"
 
     id = db.Column(db.Integer, primary_key=True)
     price = db.Column(db.Integer, nullable=False)
-    status = db.Column(db.String, default="listed")  # listed, sold, canceled
+    status = db.Column(db.String, default="listed")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
     seller_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     artwork_id = db.Column(db.Integer, db.ForeignKey("artworks.id"), nullable=False)
 
     seller = db.relationship("User", back_populates="sells", lazy="joined")
     artwork = db.relationship("Artwork", back_populates="sells", lazy="joined")
 
-    serialize_rules = ("-seller.sells", "-artwork.sells")
+    serialize_rules = (
+        "-seller.sells",
+        "-seller.purchases",
+        "-seller.cart_items",
+        "-artwork.sells",
+        "-artwork.purchases",
+        "-artwork.cart",
+        "-artwork.artist.artworks",
+    )
 
     def __repr__(self):
         return f"<Sell {self.id} Artwork:{self.artwork_id} by User:{self.seller_id} ${self.price} {self.status}>"
-
 
 class Cart(db.Model, SerializerMixin):
     __tablename__ = "carts"
@@ -156,7 +178,15 @@ class Cart(db.Model, SerializerMixin):
     user = db.relationship("User", back_populates="cart_items", lazy="joined")
     artwork = db.relationship("Artwork", back_populates="cart", lazy="joined")
 
-    serialize_rules = ("-user.cart_items", "-artwork.cart")
+    serialize_rules = (
+        "-user.cart_items",
+        "-user.purchases",
+        "-user.sells",
+        "-artwork.cart",
+        "-artwork.purchases",
+        "-artwork.sells",
+        "-artwork.artist.artworks",
+    )
 
     def __repr__(self):
         return f"<Cart {self.id} User:{self.user_id} Artwork:{self.artwork_id}>"
