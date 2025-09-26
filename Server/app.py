@@ -79,7 +79,13 @@ def create_artwork():
         return jsonify({"error": "Missing required fields"}), 400
     artist = Artist.query.get(data["artist_id"])
     if not artist: return jsonify({"error": "Artist not found"}), 404
-    art = Artwork(title=data["title"], price=data["price"], artist_id=data["artist_id"], image_url=data.get("image_url"))
+    art = Artwork(
+        title=data["title"],
+        price=data["price"],
+        artist_id=data["artist_id"],
+        image_url=data.get("image_url"),
+        description=data.get("description")  # Added description
+    )
     db.session.add(art)
     db.session.commit()
     return jsonify(art.to_dict(rules=("-artist.artworks",))), 201
@@ -91,6 +97,7 @@ def update_artwork(artwork_id):
     if "title" in data: art.title = data["title"]
     if "price" in data: art.price = data["price"]
     if "image_url" in data: art.image_url = data["image_url"]
+    if "description" in data: art.description = data["description"]  # Added description
     if "artist_id" in data:
         new_artist = Artist.query.get(data["artist_id"])
         if not new_artist: return jsonify({"error": "Artist not found"}), 404
@@ -124,7 +131,10 @@ def login_user():
     if not user or not check_password_hash(user.password, data.get("password", "")):
         return jsonify({"error": "Invalid credentials"}), 401
     session['user_id'] = user.id
-    return jsonify({"message": f"Welcome back, {user.userName}!"})
+    return jsonify({
+        "message": f"Welcome back, {user.userName}!",
+        "user": user.to_dict(rules=("-purchases", "-sells", "-cart_items", "-password"))
+    })
 
 @app.route("/logout", methods=["POST"])
 def logout_user():
@@ -262,4 +272,3 @@ if __name__ == "__main__":
     with app.app_context():
         db.create_all()
     app.run(debug=True, port=5000)
-    
