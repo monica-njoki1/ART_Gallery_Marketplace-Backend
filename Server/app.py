@@ -307,18 +307,18 @@ def add_to_cart():
     # Prevent duplicates
     existing = Cart.query.filter_by(user_id=user_id, artwork_id=artwork_id).first()
     if existing:
-        return jsonify({"message": "Item already in cart", "cart_item": existing.serialize()}), 200
+        return jsonify({"message": "Item already in cart", "cart_item": existing.to_dict()}), 200  # Changed to to_dict()
 
     item = Cart(user_id=user_id, artwork_id=artwork_id)
     db.session.add(item)
     db.session.commit()
-    return jsonify(item.serialize()), 201
+    return jsonify(item.to_dict()), 201  
 
 @app.route("/cart/<int:user_id>", methods=["GET"])
 def view_cart(user_id):
     user = User.query.get_or_404(user_id)
     items = Cart.query.filter_by(user_id=user.id).all()
-    return jsonify([it.serialize() for it in items]), 200
+    return jsonify([it.to_dict() for it in items]), 200  # Changed to to_dict()
 
 @app.route("/cart/<int:cart_id>", methods=["DELETE"])
 def remove_cart_item(cart_id):
